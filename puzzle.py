@@ -76,7 +76,7 @@ class PuzzleState(object):
         
         board[self.blank_index], board[i] = board[i], board[self.blank_index] 
 
-        return PuzzleState(board, self.n, "Left", self.cost + 1)
+        return PuzzleState(board, self.n, self,  "Left", self.cost + 1)
 
     def move_right(self):
         
@@ -118,6 +118,8 @@ def writeOutput(state, nodes_expanded, max_depth, running_time, max_ram_usage):
  
     node = state
 
+  #We need to go back via parents 
+
     while node.parent is not None:
  
         path.append(node.action)
@@ -139,40 +141,37 @@ def writeOutput(state, nodes_expanded, max_depth, running_time, max_ram_usage):
 
 def bfs_search(initial_state):
     """BFS search"""
-    
-        frontier = Q.Queue()
-        frontier.put(initial_state)
 
-        frontier_states = {tuple(initital_state.config)}
-        
-        explored = set()
+    frontier = Q.Queue()
+    frontier.put(initial_state)
 
-        nodes_expanded = 0 
+    frontier_states = {tuple(initial_state.config)}
+    explored = set()
 
-        max_depth = 0 
+    nodes_expanded = 0
+    max_depth = 0
 
+    while not frontier.empty():
 
-        while not frontier.empty():
-        
-                current = frontier.get()
-                frontier_states.remove(tuple(current.config))
+        current = frontier.get()
+        frontier_states.remove(tuple(current.config))
 
-                if test_goal(current):
-                        return current, nodes_expanded, max_depth
-                
-                explored.add(tuple(current.config))
-                nodes_expanded += 1
+        if test_goal(current):
+            return current, nodes_expanded, max_depth
 
-                for child in current.expand():
-                        config = tuple(child.config)
+        explored.add(tuple(current.config))
+        nodes_expanded += 1
 
-                        if config not in explored and config not in frontier_states:
-                                frontier.put(child)
-                                frontier_states.add(config)
+        for child in current.expand():
+            config = tuple(child.config)
 
+            if config not in explored and config not in frontier_states:
+                frontier.put(child)
+                frontier_states.add(config)
 
-                                if child.cost > max_depth:
-                                        max_depth = child.cost 
+                if child.cost > max_depth:
+                    max_depth = child.cost
+ 
 
 def dfs_search(initial_state):
     """DFS search"""
@@ -239,7 +238,7 @@ def A_star_search(initial_state):
 
         for child in current.expand():
             config = tuple(child.config)
-
+		# count breaks when two states have same priority so fix..
             if config not in explored and config not in frontier_states:
                 count += 1
 
@@ -252,41 +251,48 @@ def A_star_search(initial_state):
                 if child.cost > max_depth:
                     max_depth = child.cost
 
+
+
 def calculate_total_cost(state):
     """calculate the total estimated cost of a state"""
-    
-        total = state.cost 
-        
-        for i in range(len(state.config)):
-                total += calculate_manhattan_dist(i, state.config[i], state.n)
 
-        return total 
+    total = state.cost
+
+    for i in range(len(state.config)):
+        total += calculate_manhattan_dist(i, state.config[i], state.n)
+
+    return total
 
 
 def calculate_manhattan_dist(idx, value, n):
     """calculate the manhattan distance of a tile"""
-        
-        if value == 0:
-                return 0
 
-        row = idx // n
-        col = idx % n 
+#blank isn't in manhattan distance
 
+    if value == 0:
+        return 0
 
-        goal_row = value // n 
+    row = idx // n
+    col = idx % n
 
-        goal_col = value % n 
+    goal_row = value // n
+    goal_col = value % n
 
-
-        return abs(row - goal_row) + abs(col - goal_col)
+    return abs(row - goal_row) + abs(col - goal_col)
 
 
 def test_goal(puzzle_state):
     """test the state is the goal state or not"""
-    
-        return puzzle_state.config == list(range(puzzle_state.n * puzzle_state.n))
+
+    return puzzle_state.config == list(range(puzzle_state.n * puzzle_state.n))
+
+
+
+
 
 # Main Function that reads in Input and Runs corresponding Algorithm
+
+
 def main():
     search_mode = sys.argv[1].lower()
     begin_state = sys.argv[2].split(",")
@@ -294,15 +300,26 @@ def main():
     board_size  = int(math.sqrt(len(begin_state)))
     hard_state  = PuzzleState(begin_state, board_size)
     start_time  = time.time()
-    
-    if   search_mode == "bfs": bfs_search(hard_state)
-    elif search_mode == "dfs": dfs_search(hard_state)
-    elif search_mode == "ast": A_star_search(hard_state)
-    else: 
+    start_ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
+    if   search_mode == "bfs": result = bfs_search(hard_state)
+    elif search_mode == "dfs": result = dfs_search(hard_state)
+    elif search_mode == "ast": result = A_star_search(hard_state)
+    else:
         print("Enter valid command arguments !")
-        
+        return
+
     end_time = time.time()
+
+    state, nodes, max_depth = result
+
+    ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - start_ram
+    ram = ram / 1024
+
+    writeOutput(state, nodes, max_depth, end_time-start_time, ram)
+
     print("Program completed in %.3f second(s)"%(end_time-start_time))
+
 
 if __name__ == '__main__':
     main()
